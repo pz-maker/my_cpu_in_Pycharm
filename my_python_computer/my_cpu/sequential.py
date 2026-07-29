@@ -96,26 +96,11 @@ class GatedDLatch:
         Returns:
             当前 Q 输出 (0/1)
         """
-        # === 输入转换逻辑（纯组合电路，无状态）===
-        # HW: 当 en=0 时，不管 d 是什么，s_bar 和 r_bar 都必须是 1
-        #     这样 SR Latch 就进入"保持"模式
-        # HW: 当 en=1 时：
-        #     d=1 → s_bar=0, r_bar=1 → Set
-        #     d=0 → s_bar=1, r_bar=0 → Reset
 
-        # HW: not_d 是 d 的反相，用于生成 r_bar 的控制信号
         not_d = not_gate(d)
 
-        # HW: s_bar = NAND(en, d)
-        #     en=0 → s_bar=1 (禁止Set)
-        #     en=1,d=1 → s_bar=0 (允许Set)
-        #     en=1,d=0 → s_bar=1 (禁止Set)
         s_bar = nand_gate(en, d)
 
-        # HW: r_bar = NAND(en, not_d)
-        #     en=0 → r_bar=1 (禁止Reset)
-        #     en=1,d=0 → not_d=1 → r_bar=0 (允许Reset)
-        #     en=1,d=1 → not_d=0 → r_bar=1 (禁止Reset)
         r_bar = nand_gate(en, not_d)
 
         # === 驱动内部 SR Latch ===
@@ -403,3 +388,19 @@ class ProgramCounter:
         self._current = self._reg.tick(clk, data_in=level3, load=1)
 
         return self._current
+
+
+#锁存器，可读，可写,同样手搓
+from my_cpu.gates import tristate_buf
+
+class ReadAndWriteLatch:
+    def __init__(self):
+        self._GatedDLatch = GatedDLatch()
+        self._read = tristate_buf
+
+    def update(self, data_in: int, write: int, read: int) -> int:
+        q = self._GatedDLatch.update(write, data_in)
+        q_read = self._read(q, read)
+        return q_read
+
+

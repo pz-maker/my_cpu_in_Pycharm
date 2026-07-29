@@ -204,7 +204,7 @@ def mux_8bit(sel: int, in0: int, in1: int) -> int:
     |  0  | in0   |
     |  1  | in1   |
 
-    参数：
+    参数： 
         sel : 0 或 1
         in0 : 0~255（sel=0 时选中）
         in1 : 0~255（sel=1 时选中）
@@ -216,3 +216,29 @@ def mux_8bit(sel: int, in0: int, in1: int) -> int:
     # HW: 逐位独立选择，各位之间无耦合（§7.5 bit-slice 原则）
     out_bits = tuple(mux_2to1(sel, b0, b1) for b0, b1 in zip(bits_0, bits_1))
     return collect_bus_8bit(*out_bits)
+
+def decoder_2to4(a0:int, a1:int) -> tuple[int, int, int, int]:
+    '''译码器，第一个纯手搓元件,丑陋无比，但忠实硬件原理'''
+    zero_addr = a0
+    zero_addr_bar = not_gate(zero_addr)
+    one_addr = a1
+    one_addr_bar = not_gate(one_addr)
+    sel0 = and_gate(zero_addr_bar, one_addr_bar)
+    sel1 = and_gate(zero_addr_bar, one_addr)
+    sel2 = and_gate(zero_addr, one_addr_bar)
+    sel3 = and_gate(zero_addr, one_addr)
+    return sel0, sel1, sel2, sel3
+
+# 这不是一个"门电路"，而是对三态缓冲器的行为级建模
+def tristate_buf(q: int, re: int) -> int:
+    """
+    三态缓冲器
+
+    | re | out |
+    |----|-----|
+    |  0 |  -1 |  ← 高阻态，与总线断开
+    |  1 |  q  |  ← 直通
+    """
+    # HW: 真实硬件是传输门(PMOS+NMOS)，
+    # 仿真中用 -1 约定表示 Z 态，仅在总线模块使用
+    return q if re == 1 else -1
