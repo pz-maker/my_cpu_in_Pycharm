@@ -6,7 +6,7 @@
 - [x] nand_gate / not_gate / and_gate / or_gate / xor_gate
 - [x] majority_4 / mux_2to1 / mux_4to1 / mux_8bit
 - [x] _bit / split_bus_8bit / collect_bus_8bit
-
+新增三态缓冲器，译码器
 ### arithmetic.py 算术单元 (3/3) 
 - [x] half_adder / full_adder / ripple_carry_adder_8bit
 
