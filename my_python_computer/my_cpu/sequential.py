@@ -404,3 +404,69 @@ class ReadAndWriteLatch:
         return q_read
 
 
+# sequential.py 末尾追加
+from my_cpu.gates import and_gate
+class RegisterFile:
+    """
+    4×8-bit 寄存器堆（双读口、单写口）
+
+    HW: 真实 CPU 的寄存器堆是一个小型 RAM——
+        地址译码选中一行（寄存器），位线读出/写入。
+        两个读口 = 两组位线，互不干扰。
+        写口只有一个（单周期 CPU 每拍最多写一个寄存器）。
+
+    接口：
+        tick(clk, wr_addr, wr_data, wr_en, rd_addr_a, rd_addr_b)
+            → (data_a, data_b)
+
+    状态表：
+
+    | clk | wr_en | 行为                              |
+    |-----|-------|-----------------------------------|
+    |  0  |   x   | 主锁存器透明，捕获 wr_data（摆数据）|
+    |  1  |   0   | 所有寄存器保持，读出当前值          |
+    |  1  |   1   | wr_addr 对应寄存器更新，其余保持    |
+
+    读口是纯组合逻辑（任何时候都能读），写口受时钟控制。
+    """
+
+    NUM_REGS = 4
+    REG_WIDTH = 8
+
+    def __init__(self):
+        # HW: 4 个独立的 8-bit 寄存器，物理上是 4 行触发器阵列
+        self._regs = [Register8Bit() for _ in range(self.NUM_REGS)]
+
+    def tick(self, clk: int, wr_addr: int, wr_data: int,
+             wr_en: int, rd_addr_a: int, rd_addr_b: int) -> tuple[int, int]:
+        """
+        单拍驱动整个寄存器堆（原子 tick，§7.3）
+
+        参数：
+            clk       : 时钟相位（0=摆数据，1=出结果）
+            wr_addr   : 写地址（0~3），仅 wr_en=1 时有效
+            wr_data   : 写入数据（8-bit）
+            wr_en     : 写使能（0=全保持，1=写 wr_addr）
+            rd_addr_a : 读口 A 地址（0~3）→ 通常接 rd
+            rd_addr_b : 读口 B 地址（0~3）→ 通常接 rs
+
+        返回：
+            (data_a, data_b) — 两个读口的当前值
+        """
+        # HW: 逐寄存器 tick，只有地址匹配且 wr_en=1 的那个才 load=1
+        #     其余 load=0 → 保持。这模拟了地址译码器的 one-hot 输出。
+        outputs = []
+        for i, reg in enumerate(self._regs):
+            load = and_gate(
+                1 if i == (wr_addr & 0x03) else 0,
+                wr_en
+            )
+            val = reg.tick(clk, data_in=wr_data, load=load)
+            outputs.append(val)
+
+        # HW: 读口是组合逻辑——直接从触发器输出端接线，不经过时钟
+        data_a = outputs[rd_addr_a & 0x03]
+        data_b = outputs[rd_addr_b & 0x03]
+        return (data_a, data_b)
+
+

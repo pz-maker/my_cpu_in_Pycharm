@@ -93,3 +93,54 @@ def ripple_carry_adder_8bit(a: int, b: int, cin: int = 0) -> tuple[int, int]:
     result = collect_bus_8bit(*sum_bits)#*有解包功能 ❌ 不加 *：把整个列表当作第一个参数传进去
 
     return (result, carry)
+
+# arithmetic.py 末尾追加
+
+# ALU 操作码常量
+ALU_ADD    = 0   # a + b
+ALU_SUB    = 1   # a - b（二进制补码）
+ALU_PASS_B = 2   # 直通 b（MOV 用）
+
+def alu_8bit(op: int, a: int, b: int) -> tuple[int, int]:
+    """
+    8-bit ALU目前可以可执行加和减的操作，后续再添加其它操作。
+    这里暂时采取逻辑封装，没有硬件细节，因为我还不太会。
+
+    HW: 真实 ALU 是一个加法器 + 若干 XOR 门（取反）+ 一个 cin 控制。
+
+
+    | op | 操作        | 硬件实现              |
+    |----|-------------|-----------------------|
+    |  0 | a + b       | adder(a, b, cin=0)    |
+    |  1 | a − b       | adder(a, ~b, cin=1)   |
+    |  2 | pass b      | 不经过加法器，直通     |
+
+    参数：
+        op : 操作码（0/1/2）
+        a  : 8-bit 操作数 A（通常来自 reg[rd]）
+        b  : 8-bit 操作数 B（通常来自 reg[rs] 或 imm）
+
+    返回：
+        (result, z_flag)
+        - result : 8-bit 运算结果（截断到 8 位）
+        - z_flag : 零标志（result==0 → 1，否则 0）
+    """
+    if op == ALU_ADD:
+        raw_sum, _ = ripple_carry_adder_8bit(a, b, cin=0)
+        result = raw_sum & 0xFF
+
+    elif op == ALU_SUB:
+        # HW: 减法 = 加补码。~b 是逐位取反（8 个 NOT 门），cin=1 补上 +1
+        b_complement = (~b) & 0xFF
+        raw_sum, _ = ripple_carry_adder_8bit(a, b_complement, cin=1)
+        result = raw_sum & 0xFF
+
+    elif op == ALU_PASS_B:
+        result = b & 0xFF
+
+    else:
+        # HW: 未定义 op → 输出 0，防御性设计
+        result = 0
+
+    z_flag = 1 if result == 0 else 0
+    return (result, z_flag)
